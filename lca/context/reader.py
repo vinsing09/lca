@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 class ReaderError(Exception):
@@ -27,3 +27,25 @@ def read_code_string(code: str) -> str:
     if not code or not code.strip():
         raise ReaderError("Code string is empty or whitespace")
     return code
+
+
+def read_function(path: Path, fn_name: str) -> tuple[str, str]:
+    """Read a single named function from path. Returns (text, language).
+
+    Raises ReaderError if the file cannot be read, the language is unsupported,
+    or the function is not found.
+    """
+    from lca.context.extractor import ExtractionError, detect_language, extract_function
+
+    source = read_file(path)
+    try:
+        language = detect_language(path)
+    except ExtractionError as exc:
+        raise ReaderError(str(exc)) from exc
+    try:
+        text = extract_function(source, fn_name, language)
+    except ExtractionError:
+        raise ReaderError(
+            f"Function '{fn_name}' not found in {path}. Check the name and try again."
+        )
+    return text, language

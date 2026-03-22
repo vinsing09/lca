@@ -42,6 +42,7 @@ def explain(
     code: Optional[str] = typer.Argument(None, help="Code snippet to explain."),
     file: Optional[Path] = typer.Option(None, "-f", "--file", help="Path to file to explain."),
     model: Optional[str] = typer.Option(None, "-m", "--model", help="Model name override."),
+    fn: Optional[str] = typer.Option(None, "--fn", help="Target a specific function by name.", show_default=False),
     no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
 ) -> None:
     """Explain code from a file, snippet, or stdin."""
@@ -50,13 +51,14 @@ def explain(
     resolved_model = model or cfg.model.name
     _setup(resolved_model, cfg.model.base_url, skip=no_setup)
     from lca.commands.explain import run
-    run(file, code, model)
+    run(file, code, model, fn=fn)
 
 
 @app.command()
 def review(
     file: Optional[Path] = typer.Option(None, "-f", "--file", help="Path to file to review."),
     model: Optional[str] = typer.Option(None, "-m", "--model", help="Model name override."),
+    fn: Optional[str] = typer.Option(None, "--fn", help="Target a specific function by name.", show_default=False),
     no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
 ) -> None:
     """Review code from a file or stdin."""
@@ -65,7 +67,7 @@ def review(
     resolved_model = model or cfg.model.name
     _setup(resolved_model, cfg.model.base_url, skip=no_setup)
     from lca.commands.review import run
-    run(file, model)
+    run(file, model, fn=fn)
 
 
 @app.command()
@@ -73,6 +75,7 @@ def edit(
     instruction: str = typer.Argument(..., help="Edit instruction to apply to the file."),
     file: Optional[Path] = typer.Option(None, "-f", "--file", help="Path to file to edit."),
     model: Optional[str] = typer.Option(None, "-m", "--model", help="Model name override."),
+    fn: Optional[str] = typer.Option(None, "--fn", help="Target a specific function by name.", show_default=False),
     no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
 ) -> None:
     """Edit a file using a natural language instruction."""
@@ -84,4 +87,4 @@ def edit(
     resolved_model = model or cfg.model.name
     _setup(resolved_model, cfg.model.base_url, skip=no_setup)
     from lca.commands.edit import run
-    run(file=file, instruction=instruction, model_override=model)
+    run(file=file, instruction=instruction, model_override=model, fn=fn)

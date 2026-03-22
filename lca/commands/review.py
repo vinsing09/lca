@@ -5,7 +5,7 @@ from rich.console import Console
 
 from lca.config import load_config
 from lca.context.limiter import LimitError, check_limits
-from lca.context.reader import ReaderError, read_file, read_stdin
+from lca.context.reader import ReaderError, read_file, read_function, read_stdin
 from lca.llm.client import OllamaError, check_model_available, stream_chat
 from lca.llm.prompts import REVIEW_SYSTEM, REVIEW_TEMPERATURE, review_user
 from lca.output.stream import (
@@ -21,6 +21,7 @@ console = Console()
 def run(
     file: Path | None,
     model_override: str | None,
+    fn: str | None = None,
 ) -> None:
     cfg = load_config()
     model = model_override or cfg.model.name
@@ -28,7 +29,13 @@ def run(
 
     # 1. Read input
     try:
-        if file is not None:
+        if fn is not None:
+            if file is None:
+                print_error(console, "--fn requires -f/--file.")
+                sys.exit(2)
+            text, _ = read_function(file, fn)
+            source = f"{file}::{fn}"
+        elif file is not None:
             text = read_file(file)
             source = str(file)
         else:

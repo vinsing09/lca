@@ -5,7 +5,7 @@ from rich.console import Console
 
 from lca.config import load_config
 from lca.context.limiter import LimitError, check_limits
-from lca.context.reader import ReaderError, read_file
+from lca.context.reader import ReaderError, read_file, read_function
 from lca.llm.client import OllamaError, check_model_available, stream_chat
 from lca.llm.prompts import EDIT_SYSTEM, EDIT_TEMPERATURE, edit_user
 from lca.output.diff import (
@@ -22,14 +22,19 @@ from lca.output.stream import print_error, print_info, print_token_warning
 console = Console()
 
 
-def run(file: Path, instruction: str, model_override: str | None) -> None:
+def run(file: Path, instruction: str, model_override: str | None, fn: str | None = None) -> None:
     cfg = load_config()
     model = model_override or cfg.model.name
     base_url = cfg.model.base_url
 
-    # 1. Read file
+    # 1. Read input
     try:
-        original = read_file(file)
+        if fn is not None:
+            original, _ = read_function(file, fn)
+            source = f"{file}::{fn}"
+        else:
+            original = read_file(file)
+            source = str(file)
     except ReaderError as exc:
         print_error(console, str(exc))
         sys.exit(2)
@@ -40,7 +45,7 @@ def run(file: Path, instruction: str, model_override: str | None) -> None:
             original,
             max_lines=cfg.limits.max_edit_lines,
             warn_token_threshold=cfg.limits.warn_token_threshold,
-            source=str(file),
+            source=source,
         )
     except LimitError as exc:
         print_error(console, str(exc))
