@@ -10,3 +10,13 @@ def add(a: int, b: int) -> int:
 class MyClass:
     def method(self) -> None:
         pass
+
+
+def decorator(fn):
+    return fn
+
+
+@decorator
+def decorated(x: int) -> int:
+    """A decorated function."""
+    return x * 2

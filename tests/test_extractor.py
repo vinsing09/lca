@@ -124,3 +124,21 @@ class TestExtractGo:
 def test_unsupported_language_raises():
     with pytest.raises(ExtractionError):
         extract_function("fn foo() {}", "foo", "ruby")
+
+
+# ---------------------------------------------------------------------------
+# Decorator and idempotency edge cases
+# ---------------------------------------------------------------------------
+
+def test_decorated_function_includes_decorator():
+    """Extracting a decorated Python function returns the decorator too."""
+    py_src = (FIXTURES / "sample.py").read_text(encoding="utf-8")
+    result = extract_function(py_src, "decorated", "python")
+    assert "@decorator" in result
+    assert "def decorated" in result
+
+
+def test_extract_same_function_twice_is_identical():
+    result1 = extract_function(PY_SRC, "greet", "python")
+    result2 = extract_function(PY_SRC, "greet", "python")
+    assert result1 == result2
