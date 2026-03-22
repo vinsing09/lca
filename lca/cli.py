@@ -99,11 +99,12 @@ def doctor() -> None:
     from lca.runtime.hardware import detect_hardware, print_hardware_report
     profile = detect_hardware()
     print_hardware_report(profile, console)
+    model_name = profile.recommended_model
     console.print(
         f"\n[dim]To use the recommended model:[/dim] "
-        f"[bold]lca --model {profile.recommended_model} explain -f file.py[/bold]\n"
+        f"[bold]lca --model {model_name} explain -f file.py[/bold]\n"
     )
-    console.print(
-        f"[dim]To set it permanently, add to .lca/config.toml:[/dim]\n"
-        f"[bold][model]\nname = \"{profile.recommended_model}\"[/bold]\n"
-    )
+    console.print("[dim]To set it permanently, add to .lca/config.toml:[/dim]")
+    console.print("[model]", markup=False)
+    console.print(f'name = "{model_name}"\n', markup=False)
+
