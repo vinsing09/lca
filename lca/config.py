@@ -100,12 +100,33 @@ def _find_project_config() -> Path | None:
         current = parent
 
 
+_DEFAULT_MODEL = ModelConfig().name  # "qwen2.5-coder:7b"
+
+
 def load_config() -> Config:
-    """Return the active configuration, merging global then project config."""
-    # This is the main entry point.
+    """Return the active configuration, merging global then project config.
+
+    If no config file sets the model name, auto-selects the best model for
+    the local hardware using lca.runtime.hardware.detect_hardware().
+    """
     cfg = Config()
-    _merge(cfg, _load_toml(_global_config_path()))
+    global_data = _load_toml(_global_config_path())
+    _merge(cfg, global_data)
     project = _find_project_config()
-    if project is not None:
-        _merge(cfg, _load_toml(project))
+    project_data = _load_toml(project) if project is not None else {}
+    _merge(cfg, project_data)
+
+    # Auto-select model when no config has explicitly set one
+    user_set_model = (
+        "name" in global_data.get("model", {})
+        or "name" in project_data.get("model", {})
+    )
+    if not user_set_model and cfg.model.name == _DEFAULT_MODEL:
+        try:
+            from lca.runtime.hardware import detect_hardware
+            profile = detect_hardware()
+            cfg.model.name = profile.recommended_model
+        except Exception:
+            pass  # silently keep the default
+
     return cfg

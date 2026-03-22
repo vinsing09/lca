@@ -32,7 +32,7 @@ START_TIME=$(date +%s)
 # ---------------------------------------------------------------------------
 # Step 1 — Python check
 # ---------------------------------------------------------------------------
-info "Step 1/5 — Checking Python version..."
+info "Step 1/6 — Checking Python version..."
 
 if ! command -v python3 >/dev/null 2>&1; then
     die "Python 3 not found. Install it with:  brew install python@3.12"
@@ -52,7 +52,7 @@ success "Python ${PY_VERSION} found."
 # ---------------------------------------------------------------------------
 # Step 2 — Ollama check + install
 # ---------------------------------------------------------------------------
-info "Step 2/5 — Checking Ollama..."
+info "Step 2/6 — Checking Ollama..."
 
 if ! command -v ollama >/dev/null 2>&1; then
     warn "Ollama not found."
@@ -84,12 +84,42 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3 — Model pull
+# Step 3 — Hardware detection (pure bash, psutil not yet installed)
 # ---------------------------------------------------------------------------
-MODEL="qwen2.5-coder:7b"
-info "Step 3/5 — Checking for model '${MODEL}'..."
+info "Step 3/6 — Detecting hardware..."
 
-if ollama list 2>/dev/null | grep -q "qwen2.5-coder:7b"; then
+ARCH=$(uname -m)
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    RAM_BYTES=$(sysctl -n hw.memsize)
+    RAM_GB=$(( RAM_BYTES / 1024 / 1024 / 1024 ))
+else
+    RAM_GB=$(awk '/MemTotal/ {print int($2/1024/1024)}' /proc/meminfo)
+fi
+
+if [ "${ARCH}" = "arm64" ]; then
+    # Apple Silicon: Metal GPU unified memory — more efficient per GB
+    if   [ "${RAM_GB}" -lt 8 ];  then MODEL="qwen2.5-coder:1.5b"
+    elif [ "${RAM_GB}" -lt 32 ]; then MODEL="qwen2.5-coder:7b"
+    else MODEL="qwen2.5-coder:14b"
+    fi
+else
+    # Intel macOS / Linux
+    if   [ "${RAM_GB}" -lt 8 ];  then MODEL="qwen2.5-coder:1.5b"
+    elif [ "${RAM_GB}" -lt 16 ]; then MODEL="qwen2.5-coder:3b"
+    elif [ "${RAM_GB}" -lt 32 ]; then MODEL="qwen2.5-coder:7b"
+    else MODEL="qwen2.5-coder:14b"
+    fi
+fi
+
+success "Detected ${RAM_GB}GB RAM (${ARCH}) — recommended model: ${MODEL}"
+
+# ---------------------------------------------------------------------------
+# Step 4 — Model pull
+# ---------------------------------------------------------------------------
+info "Step 4/6 — Checking for model '${MODEL}'..."
+
+if ollama list 2>/dev/null | grep -q "${MODEL}"; then
     success "Model '${MODEL}' already present."
 else
     warn "Model '${MODEL}' not found locally."
@@ -102,7 +132,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 4 — lca install
 # ---------------------------------------------------------------------------
-info "Step 4/5 — Installing lca..."
+info "Step 5/6 — Installing lca..."
 
 if [ ! -f "lca/__init__.py" ]; then
     die "lca source not found in the current directory.
@@ -117,7 +147,7 @@ success "lca installed in editable mode (pip install -e .)."
 # ---------------------------------------------------------------------------
 # Step 5 — Verify
 # ---------------------------------------------------------------------------
-info "Step 5/5 — Verifying installation..."
+info "Step 6/6 — Verifying installation..."
 
 if ! lca --version >/dev/null 2>&1; then
     die "lca --version failed. Troubleshooting tips:

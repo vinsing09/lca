@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from rich.console import Console
 
 from lca import __version__
 
@@ -10,6 +11,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
     add_completion=False,
 )
+
+console = Console()
 
 
 def version_callback(value: bool) -> None:
@@ -88,3 +91,19 @@ def edit(
     _setup(resolved_model, cfg.model.base_url, skip=no_setup)
     from lca.commands.edit import run
     run(file=file, instruction=instruction, model_override=model, fn=fn)
+
+
+@app.command()
+def doctor() -> None:
+    """Check hardware and show recommended model for this machine."""
+    from lca.runtime.hardware import detect_hardware, print_hardware_report
+    profile = detect_hardware()
+    print_hardware_report(profile, console)
+    console.print(
+        f"\n[dim]To use the recommended model:[/dim] "
+        f"[bold]lca --model {profile.recommended_model} explain -f file.py[/bold]\n"
+    )
+    console.print(
+        f"[dim]To set it permanently, add to .lca/config.toml:[/dim]\n"
+        f"[bold][model]\nname = \"{profile.recommended_model}\"[/bold]\n"
+    )
