@@ -4,6 +4,8 @@ Merge order (last wins):
   1. Hardcoded defaults
   2. Global config:  ~/.config/lca/config.toml  (XDG_CONFIG_HOME respected)
   3. Project config: first .lca/config.toml found walking up from cwd
+
+This module provides dataclasses for configuration settings and a function to load the active configuration by merging hardcoded defaults with global and project-specific configurations.
 """
 
 import os
