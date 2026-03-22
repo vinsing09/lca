@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/pyinstaller-work/
+.venv/
+.lca/
+.pytest_cache/
+.coverage
+.DS_Store
