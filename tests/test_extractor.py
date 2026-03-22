@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from lca.context.extractor import ExtractionError, detect_language, extract_function
+from lca.context.extractor import (
+    ExtractionError,
+    detect_language,
+    extract_function,
+    extract_function_with_offsets,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -142,3 +147,33 @@ def test_extract_same_function_twice_is_identical():
     result1 = extract_function(PY_SRC, "greet", "python")
     result2 = extract_function(PY_SRC, "greet", "python")
     assert result1 == result2
+
+
+# ---------------------------------------------------------------------------
+# extract_function_with_offsets
+# ---------------------------------------------------------------------------
+
+class TestExtractWithOffsets:
+    def test_python_offsets_consistent(self):
+        text, start, end = extract_function_with_offsets(PY_SRC, "greet", "python")
+        assert PY_SRC[start:end] == text
+
+    def test_javascript_offsets_consistent(self):
+        js_src = (FIXTURES / "sample.js").read_text(encoding="utf-8")
+        text, start, end = extract_function_with_offsets(js_src, "greet", "javascript")
+        assert js_src[start:end] == text
+
+    def test_go_offsets_consistent(self):
+        go_src = (FIXTURES / "sample.go").read_text(encoding="utf-8")
+        text, start, end = extract_function_with_offsets(go_src, "greet", "go")
+        assert go_src[start:end] == text
+
+    def test_offsets_match_extract_function_text(self):
+        """extract_function_with_offsets returns the same text as extract_function."""
+        text_plain = extract_function(PY_SRC, "add", "python")
+        text_with_offsets, _, _ = extract_function_with_offsets(PY_SRC, "add", "python")
+        assert text_plain == text_with_offsets
+
+    def test_nonexistent_raises(self):
+        with pytest.raises(ExtractionError):
+            extract_function_with_offsets(PY_SRC, "nonexistent", "python")

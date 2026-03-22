@@ -15,6 +15,7 @@ from lca.output.diff import (
     display_no_changes,
     has_changes,
     make_unified_diff,
+    splice_edit,
     strip_model_fences,
 )
 from lca.output.stream import print_error, print_info, print_token_warning
@@ -27,19 +28,23 @@ def run(file: Path, instruction: str, model_override: str | None, fn: str | None
     model = model_override or cfg.model.name
     base_url = cfg.model.base_url
 
-    # 1. Read input
+    # 1. Read input — when --fn is used we also need the full file source for splicing
     try:
         if fn is not None:
-            original, _ = read_function(file, fn)
+            original_fn, _, start_char, end_char = read_function(file, fn)
+            original_file = read_file(file)
+            original = original_fn          # send only the function to the model
             source = f"{file}::{fn}"
         else:
             original = read_file(file)
+            original_file = original        # same object; no splice needed
             source = str(file)
+            start_char = end_char = 0       # unused when fn is None
     except ReaderError as exc:
         print_error(console, str(exc))
         sys.exit(2)
 
-    # 2. Check limits
+    # 2. Check limits (against the function text, not the whole file)
     try:
         report = check_limits(
             original,
@@ -75,36 +80,42 @@ def run(file: Path, instruction: str, model_override: str | None, fn: str | None
             user_prompt=edit_user(original, instruction, cfg.instructions.extra),
             temperature=EDIT_TEMPERATURE,
         )
-        edited = "".join(chunks)
+        edited_fn = "".join(chunks)
     except OllamaError as exc:
         print_error(console, str(exc))
         sys.exit(2)
 
-    # 8. Strip fences
-    edited = strip_model_fences(edited)
+    # 8. Strip fences from the model's function output
+    edited_fn = strip_model_fences(edited_fn)
 
-    # 9. Diff
-    diff = make_unified_diff(original, edited, filename=file.name)
+    # 9. Splice back into the full file (or use as-is for whole-file edits)
+    if fn is not None:
+        edited_file = splice_edit(original_file, edited_fn, start_char, end_char)
+    else:
+        edited_file = edited_fn
 
-    # 10. No changes
+    # 10. Diff the full file before vs after
+    diff = make_unified_diff(original_file, edited_file, filename=file.name)
+
+    # 11. No changes
     if not has_changes(diff):
         display_no_changes(console)
         sys.exit(0)
 
-    # 11. Display diff
+    # 12. Display diff
     display_diff(console, diff, filename=file.name)
 
-    # 12. Confirm
+    # 13. Confirm
     if not confirm_apply(console):
         console.print("Cancelled — file unchanged.")
         sys.exit(1)
 
-    # 13. Apply
+    # 14. Apply the complete file
     try:
-        apply_edit(file, edited)
+        apply_edit(file, edited_file)
     except OSError as exc:
         print_error(console, str(exc))
         sys.exit(2)
 
-    # 14. Done
+    # 15. Done
     console.print(f"✓ Applied to {file}")

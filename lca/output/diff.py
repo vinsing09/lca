@@ -64,6 +64,14 @@ def confirm_apply(console: Console) -> bool:
         return False
 
 
+def splice_edit(original_source: str, edited_fn: str, start: int, end: int) -> str:
+    """Replace the text between start and end in original_source with edited_fn.
+
+    Returns the complete new file content.
+    """
+    return original_source[:start] + edited_fn + original_source[end:]
+
+
 def apply_edit(path: Path, new_content: str) -> None:
     """Write new_content to path atomically via a temp file in the same directory."""
     directory = path.parent

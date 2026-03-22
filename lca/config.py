@@ -102,6 +102,7 @@ def _find_project_config() -> Path | None:
 
 def load_config() -> Config:
     """Return the active configuration, merging global then project config."""
+    # loads config at the very top of the function body as the first line
     cfg = Config()
     _merge(cfg, _load_toml(_global_config_path()))
     project = _find_project_config()

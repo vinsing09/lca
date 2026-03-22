@@ -48,34 +48,36 @@ def _get_name(node: Node) -> bytes | None:
     return None
 
 
-def _walk_python(node: Node, fn_name: str, source: bytes) -> str | None:
+# ---------------------------------------------------------------------------
+# Walkers — return (start_byte, end_byte) | None
+# ---------------------------------------------------------------------------
+
+def _walk_python(node: Node, fn_name: str) -> tuple[int, int] | None:
     """Recursively search a Python AST for a function named fn_name."""
     if node.type == "decorated_definition":
-        # The actual function/class is a child; check its name
         for child in node.children:
             if child.type == "function_definition":
                 if _get_name(child) == fn_name.encode():
-                    return source[node.start_byte:node.end_byte].decode()
+                    return node.start_byte, node.end_byte
     elif node.type == "function_definition":
         if _get_name(node) == fn_name.encode():
-            return source[node.start_byte:node.end_byte].decode()
+            return node.start_byte, node.end_byte
     for child in node.children:
-        result = _walk_python(child, fn_name, source)
+        result = _walk_python(child, fn_name)
         if result is not None:
             return result
     return None
 
 
-def _walk_javascript(node: Node, fn_name: str, source: bytes) -> str | None:
+def _walk_javascript(node: Node, fn_name: str) -> tuple[int, int] | None:
     """Recursively search a JavaScript AST for a function named fn_name."""
     if node.type == "function_declaration":
         if _get_name(node) == fn_name.encode():
-            return source[node.start_byte:node.end_byte].decode()
+            return node.start_byte, node.end_byte
     elif node.type == "method_definition":
         if _get_name(node) == fn_name.encode():
-            return source[node.start_byte:node.end_byte].decode()
+            return node.start_byte, node.end_byte
     elif node.type == "variable_declarator":
-        # Arrow function: const fn_name = (...) => ...
         name_node = node.child_by_field_name("name")
         value_node = node.child_by_field_name("value")
         if (
@@ -84,26 +86,24 @@ def _walk_javascript(node: Node, fn_name: str, source: bytes) -> str | None:
             and value_node is not None
             and value_node.type == "arrow_function"
         ):
-            # Return the whole lexical_declaration (parent) for full context,
-            # but the spec says "function" so return the declarator's parent
             parent = node.parent
             if parent is not None:
-                return source[parent.start_byte:parent.end_byte].decode()
-            return source[node.start_byte:node.end_byte].decode()
+                return parent.start_byte, parent.end_byte
+            return node.start_byte, node.end_byte
     for child in node.children:
-        result = _walk_javascript(child, fn_name, source)
+        result = _walk_javascript(child, fn_name)
         if result is not None:
             return result
     return None
 
 
-def _walk_go(node: Node, fn_name: str, source: bytes) -> str | None:
+def _walk_go(node: Node, fn_name: str) -> tuple[int, int] | None:
     """Recursively search a Go AST for a function named fn_name."""
     if node.type in ("function_declaration", "method_declaration"):
         if _get_name(node) == fn_name.encode():
-            return source[node.start_byte:node.end_byte].decode()
+            return node.start_byte, node.end_byte
     for child in node.children:
-        result = _walk_go(child, fn_name, source)
+        result = _walk_go(child, fn_name)
         if result is not None:
             return result
     return None
@@ -116,29 +116,53 @@ _WALKERS = {
 }
 
 
+def _parse(source: str, language: str) -> tuple[bytes, "Node"]:
+    """Parse source and return (source_bytes, root_node)."""
+    if language not in _LANGUAGES:
+        raise ExtractionError(f"Unsupported language: {language!r}")
+    lang = _LANGUAGES[language]
+    parser = Parser(lang)
+    source_bytes = source.encode()
+    try:
+        tree = parser.parse(source_bytes)
+    except Exception as exc:
+        raise ExtractionError(f"tree-sitter parse failed: {exc}") from exc
+    return source_bytes, tree.root_node
+
+
+def _byte_offsets(source: str, language: str, fn_name: str) -> tuple[int, int]:
+    """Return (start_byte, end_byte) for fn_name in source, or raise ExtractionError."""
+    source_bytes, root = _parse(source, language)
+    walker = _WALKERS[language]
+    offsets = walker(root, fn_name)
+    if offsets is None:
+        raise ExtractionError(f"Function {fn_name!r} not found in {language} source.")
+    return offsets
+
+
 def extract_function(source: str, fn_name: str, language: str) -> str:
     """Return the source text of the named function/method.
 
     Raises ExtractionError if language is unsupported, the parse fails,
     or fn_name is not found.
     """
-    if language not in _LANGUAGES:
-        raise ExtractionError(f"Unsupported language: {language!r}")
-
-    lang = _LANGUAGES[language]
-    parser = Parser(lang)
     source_bytes = source.encode()
+    start_byte, end_byte = _byte_offsets(source, language, fn_name)
+    return source_bytes[start_byte:end_byte].decode()
 
-    try:
-        tree = parser.parse(source_bytes)
-    except Exception as exc:
-        raise ExtractionError(f"tree-sitter parse failed: {exc}") from exc
 
-    walker = _WALKERS[language]
-    result = walker(tree.root_node, fn_name, source_bytes)
+def extract_function_with_offsets(
+    source: str, fn_name: str, language: str
+) -> tuple[str, int, int]:
+    """Same as extract_function but also returns character offsets in source.
 
-    if result is None:
-        raise ExtractionError(
-            f"Function {fn_name!r} not found in {language} source."
-        )
-    return result
+    Returns (function_text, start_char, end_char) where
+    source[start_char:end_char] == function_text.
+    """
+    source_bytes = source.encode()
+    start_byte, end_byte = _byte_offsets(source, language, fn_name)
+    text = source_bytes[start_byte:end_byte].decode()
+    # Convert byte offsets to character offsets
+    start_char = len(source_bytes[:start_byte].decode())
+    end_char = start_char + len(text)
+    return text, start_char, end_char

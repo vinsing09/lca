@@ -29,13 +29,20 @@ def read_code_string(code: str) -> str:
     return code
 
 
-def read_function(path: Path, fn_name: str) -> tuple[str, str]:
-    """Read a single named function from path. Returns (text, language).
+def read_function(path: Path, fn_name: str) -> tuple[str, str, int, int]:
+    """Read a single named function from path.
+
+    Returns (text, language, start_char, end_char) where
+    full_source[start_char:end_char] == text.
 
     Raises ReaderError if the file cannot be read, the language is unsupported,
     or the function is not found.
     """
-    from lca.context.extractor import ExtractionError, detect_language, extract_function
+    from lca.context.extractor import (
+        ExtractionError,
+        detect_language,
+        extract_function_with_offsets,
+    )
 
     source = read_file(path)
     try:
@@ -43,9 +50,9 @@ def read_function(path: Path, fn_name: str) -> tuple[str, str]:
     except ExtractionError as exc:
         raise ReaderError(str(exc)) from exc
     try:
-        text = extract_function(source, fn_name, language)
+        text, start_char, end_char = extract_function_with_offsets(source, fn_name, language)
     except ExtractionError:
         raise ReaderError(
             f"Function '{fn_name}' not found in {path}. Check the name and try again."
         )
-    return text, language
+    return text, language, start_char, end_char

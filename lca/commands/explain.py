@@ -34,7 +34,7 @@ def run(
             if file is None:
                 print_error(console, "--fn requires -f/--file.")
                 sys.exit(2)
-            text, _ = read_function(file, fn)
+            text, *_ = read_function(file, fn)
             source = f"{file}::{fn}"
         elif file is not None:
             text = read_file(file)

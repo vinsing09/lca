@@ -10,8 +10,38 @@ from lca.output.diff import (
     confirm_apply,
     has_changes,
     make_unified_diff,
+    splice_edit,
     strip_model_fences,
 )
+
+
+# ---------------------------------------------------------------------------
+# splice_edit
+# ---------------------------------------------------------------------------
+
+def test_splice_at_start():
+    result = splice_edit("hello world", "HI", 0, 5)
+    assert result == "HI world"
+
+
+def test_splice_in_middle():
+    source = "aaa bbb ccc"
+    #                ^^^
+    result = splice_edit(source, "XXX", 4, 7)
+    assert result == "aaa XXX ccc"
+
+
+def test_splice_at_end():
+    result = splice_edit("hello world", "EARTH", 6, 11)
+    assert result == "hello EARTH"
+
+
+def test_splice_preserves_surrounding_content():
+    source = "before\nTARGET\nafter\n"
+    start = source.index("TARGET")
+    end = start + len("TARGET")
+    result = splice_edit(source, "REPLACED", start, end)
+    assert result == "before\nREPLACED\nafter\n"
 
 
 # ---------------------------------------------------------------------------
