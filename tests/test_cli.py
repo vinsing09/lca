@@ -40,14 +40,18 @@ class TestVersion:
         assert "0.1" in result.output
 
 
-class TestEditStub:
-    def test_exits_1(self):
-        result = runner.invoke(app, ["edit"])
-        assert result.exit_code == 1
+class TestEdit:
+    def test_missing_file_exits_2(self):
+        result = runner.invoke(app, ["edit", "add docstrings"])
+        assert result.exit_code == 2
 
-    def test_output_mentions_phase_2(self):
+    def test_missing_file_error_mentions_flag(self):
+        result = runner.invoke(app, ["edit", "add docstrings"])
+        assert "--file" in result.output or "-f" in result.output
+
+    def test_missing_instruction_exits_nonzero(self):
         result = runner.invoke(app, ["edit"])
-        assert "Phase 2" in result.output
+        assert result.exit_code != 0
 
 
 class TestExplainInputValidation:
