@@ -28,6 +28,7 @@ class ModelConfig:
 
 @dataclass
 class LimitsConfig:
+    max_edit_lines: int = 150
     max_explain_lines: int = 300
     max_review_lines: int = 300
     warn_token_threshold: int = 2000
@@ -63,6 +64,8 @@ def _merge(cfg: Config, data: dict) -> None:
         cfg.model.base_url = model_data["base_url"]
 
     limits_data = data.get("limits", {})
+    if "max_edit_lines" in limits_data:
+        cfg.limits.max_edit_lines = limits_data["max_edit_lines"]
     if "max_explain_lines" in limits_data:
         cfg.limits.max_explain_lines = limits_data["max_explain_lines"]
     if "max_review_lines" in limits_data:
