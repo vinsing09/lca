@@ -199,4 +199,4 @@ def test_review_temperature():
 
 
 def test_fix_temperature():
-    assert FIX_TEMPERATURE == 0.1
+    assert FIX_TEMPERATURE == 0.0

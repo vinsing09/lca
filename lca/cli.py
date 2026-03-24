@@ -152,6 +152,25 @@ def find(
 
 
 @app.command()
+def describe(
+    directory: Path = typer.Argument(..., help="Directory to describe."),
+    output: Optional[Path] = typer.Option(
+        None, "-o", "--output",
+        help="Save architecture document to this file.",
+        show_default=False,
+    ),
+    model: Optional[str] = typer.Option(None, "-m", "--model", show_default=False),
+    no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
+) -> None:
+    """Generate an architecture document for a directory."""
+    from lca.config import load_config
+    cfg = load_config()
+    _setup(model or cfg.model.name, cfg.model.base_url, skip=no_setup)
+    from lca.commands.describe import run
+    run(directory=directory, output=output, model_override=model)
+
+
+@app.command()
 def doctor() -> None:
     """Check hardware and show recommended model for this machine."""
     from lca.runtime.hardware import detect_hardware, print_hardware_report
