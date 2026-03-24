@@ -30,10 +30,10 @@ class ModelConfig:
 
 @dataclass
 class LimitsConfig:
-    max_edit_lines: int = 150
-    max_explain_lines: int = 300
-    max_review_lines: int = 300
-    warn_token_threshold: int = 2000
+    max_edit_lines: int = 400
+    max_explain_lines: int = 1000
+    max_review_lines: int = 1000
+    warn_token_threshold: int = 8000
 
 
 @dataclass

@@ -128,9 +128,9 @@ class TestEditFnFlag:
         assert result.exit_code == 0
 
     def test_fn_long_function_exits_3(self, tmp_path):
-        # Build a file containing a single function > 150 lines
+        # Build a file containing a single function > 400 lines
         lines = ["def big_fn():"]
-        lines += [f"    x_{i} = {i}" for i in range(155)]
+        lines += [f"    x_{i} = {i}" for i in range(405)]
         lines.append("    return x_0")
         f = tmp_path / "big.py"
         f.write_text("\n".join(lines), encoding="utf-8")

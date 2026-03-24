@@ -28,9 +28,9 @@ def test_model_defaults():
 
 def test_limits_defaults():
     cfg = Config()
-    assert cfg.limits.max_explain_lines == 300
-    assert cfg.limits.max_review_lines == 300
-    assert cfg.limits.warn_token_threshold == 2000
+    assert cfg.limits.max_explain_lines == 1000
+    assert cfg.limits.max_review_lines == 1000
+    assert cfg.limits.warn_token_threshold == 8000
 
 
 def test_instructions_defaults():

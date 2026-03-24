@@ -37,7 +37,7 @@ class TestVersion:
     def test_output_contains_lca_and_version(self):
         result = runner.invoke(app, ["--version"])
         assert "lca" in result.output
-        assert "0.1" in result.output
+        assert "0.2" in result.output
 
 
 class TestEdit:
@@ -60,14 +60,14 @@ class TestExplainInputValidation:
         assert result.exit_code == 2
 
     def test_oversized_file_exits_3(self, tmp_path):
-        f = _make_file(tmp_path, lines=301)
+        f = _make_file(tmp_path, lines=1001)
         result = runner.invoke(app, ["explain", "-f", str(f)])
         assert result.exit_code == 3
 
     def test_oversized_file_error_mentions_limit(self, tmp_path):
-        f = _make_file(tmp_path, lines=301)
+        f = _make_file(tmp_path, lines=1001)
         result = runner.invoke(app, ["explain", "-f", str(f)])
-        assert "300" in result.output
+        assert "1000" in result.output
 
     def test_valid_file_exits_0(self, tmp_path):
         f = _make_file(tmp_path, lines=5)
@@ -96,7 +96,7 @@ class TestReviewInputValidation:
         assert result.exit_code == 2
 
     def test_oversized_file_exits_3(self, tmp_path):
-        f = _make_file(tmp_path, lines=301)
+        f = _make_file(tmp_path, lines=1001)
         result = runner.invoke(app, ["review", "-f", str(f)])
         assert result.exit_code == 3
 

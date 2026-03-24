@@ -59,21 +59,21 @@ class TestEditInputValidation:
         assert result.exit_code == 2
 
     def test_oversized_file_exits_3(self, tmp_path):
-        f = _make_file(tmp_path, lines=151)
+        f = _make_file(tmp_path, lines=401)
         runner = CliRunner()
         result = runner.invoke(app, ["edit", "add docstrings", "-f", str(f)])
         assert result.exit_code == 3
 
     def test_oversized_file_mentions_limit(self, tmp_path):
-        f = _make_file(tmp_path, lines=151)
+        f = _make_file(tmp_path, lines=401)
         runner = CliRunner()
         result = runner.invoke(app, ["edit", "add docstrings", "-f", str(f)])
-        assert "150" in result.output
+        assert "400" in result.output
 
-    def test_exactly_150_lines_not_exit_3(self, tmp_path):
-        f = _make_file(tmp_path, lines=150)
+    def test_exactly_400_lines_not_exit_3(self, tmp_path):
+        f = _make_file(tmp_path, lines=400)
         runner = CliRunner()
-        with patch(_EDIT_STREAM, side_effect=_mock_stream("\n".join(f"x = {i}" for i in range(150)))), \
+        with patch(_EDIT_STREAM, side_effect=_mock_stream("\n".join(f"x = {i}" for i in range(400)))), \
              patch(_EDIT_MODEL_CHECK, return_value=True):
             result = runner.invoke(app, ["edit", "add docstrings", "-f", str(f)], input="n")
         assert result.exit_code != 3

@@ -64,3 +64,77 @@ def test_size_report_fields():
     assert report.line_count == 5
     assert isinstance(report.estimated_tokens, int)
     assert isinstance(report.over_warn_threshold, bool)
+
+
+# ---------------------------------------------------------------------------
+# New defaults
+# ---------------------------------------------------------------------------
+
+def test_default_edit_limit_is_400():
+    from lca.config import LimitsConfig
+    assert LimitsConfig().max_edit_lines == 400
+
+
+def test_default_explain_limit_is_1000():
+    from lca.config import LimitsConfig
+    assert LimitsConfig().max_explain_lines == 1000
+
+
+def test_default_review_limit_is_1000():
+    from lca.config import LimitsConfig
+    assert LimitsConfig().max_review_lines == 1000
+
+
+def test_default_warn_token_threshold_is_8000():
+    from lca.config import LimitsConfig
+    assert LimitsConfig().warn_token_threshold == 8000
+
+
+# ---------------------------------------------------------------------------
+# Context-aware error messages
+# ---------------------------------------------------------------------------
+
+def test_edit_command_message_mentions_lca_edit():
+    text = _make_text(5)
+    with pytest.raises(LimitError) as exc_info:
+        check_limits(text, max_lines=4, warn_token_threshold=9999,
+                     source="foo.py", command="edit")
+    msg = str(exc_info.value)
+    assert "--fn" in msg
+    assert "lca edit" in msg
+
+
+def test_review_command_message_mentions_lca_review():
+    text = _make_text(5)
+    with pytest.raises(LimitError) as exc_info:
+        check_limits(text, max_lines=4, warn_token_threshold=9999,
+                     source="foo.py", command="review")
+    msg = str(exc_info.value)
+    assert "--fn" in msg
+    assert "lca review" in msg
+
+
+def test_explain_command_message_mentions_lca_explain():
+    text = _make_text(5)
+    with pytest.raises(LimitError) as exc_info:
+        check_limits(text, max_lines=4, warn_token_threshold=9999,
+                     source="foo.py", command="explain")
+    msg = str(exc_info.value)
+    assert "--fn" in msg
+    assert "lca explain" in msg
+
+
+def test_edit_command_message_no_break_file_hint():
+    text = _make_text(5)
+    with pytest.raises(LimitError) as exc_info:
+        check_limits(text, max_lines=4, warn_token_threshold=9999,
+                     source="foo.py", command="edit")
+    assert "break the file up" not in str(exc_info.value)
+
+
+def test_review_command_message_has_break_file_hint():
+    text = _make_text(5)
+    with pytest.raises(LimitError) as exc_info:
+        check_limits(text, max_lines=4, warn_token_threshold=9999,
+                     source="foo.py", command="review")
+    assert "break the file up" in str(exc_info.value)
