@@ -18,6 +18,82 @@ from lca.output.stream import (
 console = Console()
 
 
+_EXPLAIN_EXTENSIONS = {".py", ".js", ".ts", ".go"}
+
+
+def run_directory(directory: Path, model_override: str | None) -> None:
+    from lca.context.finder import _walk_dir
+
+    cfg = load_config()
+    model = model_override or cfg.model.name
+    base_url = cfg.model.base_url
+
+    console.print(f"[dim]Indexing {directory}...[/dim]")
+    files = sorted(
+        p for p in _walk_dir(directory)
+        if p.suffix.lower() in _EXPLAIN_EXTENSIONS
+    )
+
+    if not files:
+        console.print(f"No supported files found in {directory}")
+        return
+
+    console.print(f"[dim]{len(files)} file(s)[/dim]")
+
+    # Concatenate file contents with relative-path headers
+    parts: list[str] = []
+    for file_path in files:
+        try:
+            rel = file_path.relative_to(directory)
+        except ValueError:
+            rel = file_path
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            console.print(f"[yellow]Skipping {rel}: {exc}[/yellow]")
+            continue
+        parts.append(f"### {rel}\n{content}")
+
+    combined = "\n\n".join(parts)
+    source = str(directory)
+
+    try:
+        report = check_limits(
+            combined,
+            max_lines=cfg.limits.max_explain_lines,
+            warn_token_threshold=cfg.limits.warn_token_threshold,
+            source=source,
+            command="explain",
+        )
+    except LimitError as exc:
+        print_error(console, str(exc))
+        sys.exit(3)
+
+    if report.over_warn_threshold:
+        print_token_warning(console, report.estimated_tokens, cfg.limits.warn_token_threshold)
+
+    print_info(
+        console,
+        f"model={model}  lines={report.line_count}  ~{report.estimated_tokens} tokens",
+    )
+
+    if not check_model_available(base_url, model):
+        console.print(f"[yellow]Warning: model '{model}' not found at {base_url}[/yellow]")
+
+    try:
+        chunks = stream_chat(
+            base_url=base_url,
+            model=model,
+            system_prompt=EXPLAIN_SYSTEM,
+            user_prompt=explain_user(combined, cfg.instructions.extra),
+            temperature=EXPLAIN_TEMPERATURE,
+        )
+        stream_plain(console, chunks, header=f"Explanation: {directory}")
+    except OllamaError as exc:
+        print_error(console, str(exc))
+        sys.exit(2)
+
+
 def run(
     file: Path | None,
     code: str | None,

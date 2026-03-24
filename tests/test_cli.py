@@ -89,6 +89,30 @@ class TestExplainInputValidation:
             result = runner.invoke(app, ["explain", "x = 1 + 2"])
         assert result.exit_code == 0
 
+    def test_file_and_dir_together_exits_2(self, tmp_path):
+        f = _make_file(tmp_path, lines=5)
+        result = runner.invoke(app, ["explain", "-f", str(f), "-d", str(tmp_path)])
+        assert result.exit_code == 2
+
+    def test_directory_exits_0(self, tmp_path):
+        _make_file(tmp_path, lines=5)
+        with patch(_EXPLAIN_STREAM, side_effect=_mock_stream()), \
+             patch(_EXPLAIN_MODEL_CHECK, return_value=True):
+            result = runner.invoke(app, ["explain", "-d", str(tmp_path)])
+        assert result.exit_code == 0
+
+    def test_empty_directory_exits_0(self, tmp_path):
+        result = runner.invoke(app, ["explain", "-d", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "No supported files found" in result.output
+
+    def test_directory_output_contains_streamed_text(self, tmp_path):
+        _make_file(tmp_path, lines=5)
+        with patch(_EXPLAIN_STREAM, side_effect=_mock_stream("dir explain output")), \
+             patch(_EXPLAIN_MODEL_CHECK, return_value=True):
+            result = runner.invoke(app, ["explain", "-d", str(tmp_path)])
+        assert "dir explain output" in result.output
+
 
 class TestReviewInputValidation:
     def test_missing_file_exits_2(self, tmp_path):

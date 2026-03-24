@@ -23,7 +23,7 @@ a = Analysis(
         'psutil',
         'tree_sitter', 'tree_sitter_python', 'tree_sitter_javascript', 'tree_sitter_go',
         'lca.commands.explain', 'lca.commands.review', 'lca.commands.edit',
-        'lca.commands.find', 'lca.commands.fix',
+        'lca.commands.find', 'lca.commands.fix', 'lca.commands.describe',
         'lca.runtime.hardware',
         'lca.context.reader', 'lca.context.limiter', 'lca.context.extractor',
         'lca.context.finder', 'lca.context.stack_parser',

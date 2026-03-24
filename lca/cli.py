@@ -44,15 +44,23 @@ def main(
 def explain(
     code: Optional[str] = typer.Argument(None, help="Code snippet to explain."),
     file: Optional[Path] = typer.Option(None, "-f", "--file", help="Path to file to explain."),
+    directory: Optional[Path] = typer.Option(None, "-d", "--dir", help="Explain all files in a directory.", show_default=False),
     model: Optional[str] = typer.Option(None, "-m", "--model", help="Model name override."),
     fn: Optional[str] = typer.Option(None, "--fn", help="Target a specific function by name.", show_default=False),
     no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
 ) -> None:
-    """Explain code from a file, snippet, or stdin."""
+    """Explain code from a file, directory, snippet, or stdin."""
+    if file is not None and directory is not None:
+        console.print("[bold red]Error:[/bold red] use -f or -d, not both")
+        raise typer.Exit(2)
     from lca.config import load_config
     cfg = load_config()
     resolved_model = model or cfg.model.name
     _setup(resolved_model, cfg.model.base_url, skip=no_setup)
+    if directory is not None:
+        from lca.commands.explain import run_directory
+        run_directory(directory, model)
+        return
     from lca.commands.explain import run
     run(file, code, model, fn=fn)
 
