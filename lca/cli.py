@@ -94,6 +94,32 @@ def edit(
 
 
 @app.command()
+def find(
+    query: str = typer.Argument(..., help="Description of the function to find."),
+    file: Optional[Path] = typer.Option(
+        None, "-f", "--file", help="Search within this file.", show_default=False,
+    ),
+    directory: Optional[Path] = typer.Option(
+        None, "-d", "--dir", help="Search within this directory.", show_default=False,
+    ),
+    model: Optional[str] = typer.Option(None, "-m", "--model", show_default=False),
+    no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
+) -> None:
+    """Find functions by natural language description."""
+    if file is None and directory is None:
+        console.print("[bold red]Error:[/bold red] provide -f FILE or -d DIRECTORY")
+        raise typer.Exit(2)
+    if file is not None and directory is not None:
+        console.print("[bold red]Error:[/bold red] use -f or -d, not both")
+        raise typer.Exit(2)
+    from lca.config import load_config
+    cfg = load_config()
+    _setup(model or cfg.model.name, cfg.model.base_url, skip=no_setup)
+    from lca.commands.find import run
+    run(query=query, file=file, directory=directory, model_override=model)
+
+
+@app.command()
 def doctor() -> None:
     """Check hardware and show recommended model for this machine."""
     from lca.runtime.hardware import detect_hardware, print_hardware_report
