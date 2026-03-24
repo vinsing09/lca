@@ -3,10 +3,23 @@ from pathlib import Path
 
 from rich.console import Console
 
-from lca.commands.edit import run as edit_run
 from lca.config import load_config
+from lca.context.reader import ReaderError, read_file, read_function
+from lca.context.limiter import LimitError, check_limits
 from lca.context.stack_parser import find_function_at_line, parse_error
-from lca.output.stream import print_error
+from lca.llm.client import OllamaError, check_model_available, stream_chat
+from lca.llm.prompts import FIX_SYSTEM, FIX_TEMPERATURE, fix_user
+from lca.output.diff import (
+    apply_edit,
+    confirm_apply,
+    display_diff,
+    display_no_changes,
+    has_changes,
+    make_unified_diff,
+    splice_edit,
+    strip_model_fences,
+)
+from lca.output.stream import print_error, print_info, print_token_warning
 
 console = Console()
 
@@ -19,6 +32,10 @@ def run(
     fn: str | None,
     model_override: str | None,
 ) -> None:
+    cfg = load_config()
+    model = model_override or cfg.model.name
+    base_url = cfg.model.base_url
+
     # ------------------------------------------------------------------
     # Step 1 — resolve function name
     # ------------------------------------------------------------------
@@ -55,10 +72,7 @@ def run(
         results = index_directory(directory)
         matches = [path for path, name, _ in results if name == resolved_fn]
         if not matches:
-            print_error(
-                console,
-                f"Function '{resolved_fn}' not found in {directory}.",
-            )
+            print_error(console, f"Function '{resolved_fn}' not found in {directory}.")
             sys.exit(2)
         if len(matches) > 1:
             console.print(
@@ -94,11 +108,92 @@ def run(
         console.print(f"[dim]Auto-detected function from error: {resolved_fn}[/dim]")
 
     # ------------------------------------------------------------------
-    # Step 5 — delegate to edit
+    # Step 5 — read code
     # ------------------------------------------------------------------
-    edit_run(
-        file=resolved_file,
-        instruction=instruction,
-        model_override=model_override,
-        fn=resolved_fn,
-    )
+    try:
+        if resolved_fn is not None:
+            original_fn, _, start_char, end_char = read_function(resolved_file, resolved_fn)
+            original_file = read_file(resolved_file)
+            original = original_fn
+            source = f"{resolved_file}::{resolved_fn}"
+        else:
+            original = read_file(resolved_file)
+            original_file = original
+            source = str(resolved_file)
+            start_char = end_char = 0
+    except ReaderError as exc:
+        print_error(console, str(exc))
+        sys.exit(2)
+
+    # ------------------------------------------------------------------
+    # Step 6 — check limits
+    # ------------------------------------------------------------------
+    try:
+        report = check_limits(
+            original,
+            max_lines=cfg.limits.max_edit_lines,
+            warn_token_threshold=cfg.limits.warn_token_threshold,
+            source=source,
+            command="edit",
+        )
+    except LimitError as exc:
+        print_error(console, str(exc))
+        sys.exit(3)
+
+    if report.over_warn_threshold:
+        print_token_warning(console, report.estimated_tokens, cfg.limits.warn_token_threshold)
+
+    print_info(console, f"model={model}  lines={report.line_count}  ~{report.estimated_tokens} tokens")
+
+    # ------------------------------------------------------------------
+    # Step 7 — model availability check (soft warning)
+    # ------------------------------------------------------------------
+    if not check_model_available(base_url, model):
+        console.print(f"[yellow]Warning: model '{model}' not found at {base_url}[/yellow]")
+
+    # ------------------------------------------------------------------
+    # Step 8 — call model with FIX_SYSTEM
+    # ------------------------------------------------------------------
+    console.print("[dim]Generating fix…[/dim]")
+    try:
+        chunks = stream_chat(
+            base_url=base_url,
+            model=model,
+            system_prompt=FIX_SYSTEM,
+            user_prompt=fix_user(original, instruction, cfg.instructions.extra),
+            temperature=FIX_TEMPERATURE,
+        )
+        edited_fn = "".join(chunks)
+    except OllamaError as exc:
+        print_error(console, str(exc))
+        sys.exit(2)
+
+    # ------------------------------------------------------------------
+    # Step 9 — strip fences, splice, diff, confirm, apply
+    # ------------------------------------------------------------------
+    edited_fn = strip_model_fences(edited_fn)
+
+    if resolved_fn is not None:
+        edited_file = splice_edit(original_file, edited_fn, start_char, end_char)
+    else:
+        edited_file = edited_fn
+
+    diff = make_unified_diff(original_file, edited_file, filename=resolved_file.name)
+
+    if not has_changes(diff):
+        display_no_changes(console)
+        sys.exit(0)
+
+    display_diff(console, diff, filename=resolved_file.name)
+
+    if not confirm_apply(console):
+        console.print("Cancelled — file unchanged.")
+        sys.exit(1)
+
+    try:
+        apply_edit(resolved_file, edited_file)
+    except OSError as exc:
+        print_error(console, str(exc))
+        sys.exit(2)
+
+    console.print(f"✓ Applied to {resolved_file}")
