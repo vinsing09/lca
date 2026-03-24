@@ -94,6 +94,38 @@ def edit(
 
 
 @app.command()
+def fix(
+    description: Optional[str] = typer.Argument(
+        None, help="Description of the bug to fix.", show_default=False,
+    ),
+    file: Optional[Path] = typer.Option(
+        None, "-f", "--file", help="File containing the bug.", exists=False, show_default=False,
+    ),
+    directory: Optional[Path] = typer.Option(
+        None, "-d", "--dir", help="Directory to search for the function.", show_default=False,
+    ),
+    fn: Optional[str] = typer.Option(
+        None, "--fn", help="Target a specific function by name.", show_default=False,
+    ),
+    error: Optional[str] = typer.Option(
+        None, "--error", help="Error message or stack trace.", show_default=False,
+    ),
+    model: Optional[str] = typer.Option(None, "-m", "--model", show_default=False),
+    no_setup: bool = typer.Option(False, "--no-setup", hidden=True),
+) -> None:
+    """Fix a bug by description or error message. Auto-locates the function."""
+    if description is None and error is None:
+        console.print("[bold red]Error:[/bold red] provide a description or --error")
+        raise typer.Exit(2)
+    from lca.config import load_config
+    cfg = load_config()
+    _setup(model or cfg.model.name, cfg.model.base_url, skip=no_setup)
+    from lca.commands.fix import run
+    run(description=description, error=error, file=file,
+        directory=directory, fn=fn, model_override=model)
+
+
+@app.command()
 def find(
     query: str = typer.Argument(..., help="Description of the function to find."),
     file: Optional[Path] = typer.Option(

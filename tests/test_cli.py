@@ -37,7 +37,7 @@ class TestVersion:
     def test_output_contains_lca_and_version(self):
         result = runner.invoke(app, ["--version"])
         assert "lca" in result.output
-        assert "0.2" in result.output
+        assert "0.3" in result.output
 
 
 class TestEdit:
